@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conference Room Booking</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f9f9f9;
+        }
+
+        h1 {
+            margin: 20px;
+        }
+
+        form, .room-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 300px;
+            padding: 20px;
+            border-radius: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Optional shadow for aesthetics */
+        }
+
+        button {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            background: linear-gradient(to left,#ff00ff, #00ffff);
+            cursor: pointer;
+            animation: blink 2s infinite;
+        }
+        @keyframes blink {
+            0% {
+                opacity: 1; /* Fully visible */
+            }
+            50% {
+                opacity: 0.5; /* Half transparent */
+            }
+            100% {
+                opacity: 1; /* Fully visible */
+            }
+        }
+
+        table {
+            width: 100%;
+            margin-top: 10px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        .room-card {
+            margin: 10px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Conference Room Booking</h1>
+
+    <!-- Employee Details Form -->
+    <form id="employee-form">
+        <label for="employee-name" style="color: #333;">Emp Name:</label>
+        <input type="text" id="employee-name" name="employee_name" required style="
+            padding: 5px; 
+            border: 1px solid #ccc; 
+            border-radius: 5px;">
+
+        <label for="employee-id" style="color: #333;">Emp ID:</label>
+        <input type="text" id="employee-id" name="employee_id" required style="
+            padding: 5px; 
+            border: 1px solid #ccc; 
+            border-radius: 5px;">
+
+        <button type="button" onclick="enableBooking()">Continue</button>
+    </form>
+
+    
+
+    <script>
+        function enableBooking() {
+            // Get the input values
+            const name = document.getElementById('employee-name').value.trim();
+            const id = document.getElementById('employee-id').value.trim();
+
+            // Validation logic
+            if (!name && !id) {
+                alert('Please enter Employee Name and Employee ID.');
+                return; // Prevent further execution
+            } else if (!name) {
+                alert('Please enter Employee Name.');
+                return; // Prevent further execution
+            } else if (!id) {
+                alert('Please enter Employee ID.');
+                return; // Prevent further execution
+            }
+
+            // If valid, proceed to the booking section
+            document.getElementById('employee-form').style.display = 'none';
+            document.getElementById('booking-section').style.display = 'block';
+        }
+    </script>
+    <div id="booking-section" style="display: none;">
+        <h1>Available Rooms</h1>
+        <div id="rooms-container">
+            {% for room in rooms %}
+            <div class="room-card">
+                <h3>{{ room.name }}</h3>
+                <p>Location: {{ room.location }}</p>
+                <h4>Bookings:</h4>
+                {% if room.bookings %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employee Name</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                        </tr>
+                    </thead>
+                    <<tbody>
+                        {% for booking in room.bookings %}
+                        <tr>
+                            <td>{{ booking.employee_name }}</td>
+                            <td>{{ booking.start_time }}</td>
+                            <td>{{ booking.end_time }}</td>
+                            <td>
+                                <!-- Display cancel button only for the logged-in user -->
+                                {% if booking.employee_name == user_name %}
+                                <button onclick="cancelBooking('{{ booking.id }}', '{{ booking.employee_name }}')">Cancel</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    
+                </table>
+                {% else %}
+                <p>No bookings yet.</p>
+                {% endif %}
+                <button onclick="openBookingModal('{{ room.id }}')">Book Room</button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    
+
+    <script>
+        
+        
+
+        function openBookingModal(roomId) {
+            Swal.fire({
+                title: 'Book Room',
+                html: `
+                    <label>Start Time:</label>
+                    <input type="datetime-local" id="start-time">
+                    <label>End Time:</label>
+                    <input type="datetime-local" id="end-time">
+                `,
+                showCancelButton: true,
+                preConfirm: () => {
+                    const startTime = document.getElementById('start-time').value;
+                    const endTime = document.getElementById('end-time').value;
+                    if (!startTime || !endTime) {
+                        Swal.showValidationMessage('Start and End Time are required');
+                    }
+                    return { startTime, endTime };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch('/book', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({
+                            room_id: roomId,
+                            employee_name: document.getElementById('employee-name').value,
+                            start_time: result.value.startTime,
+                            end_time: result.value.endTime
+                        })
+                    }).then(() => {
+                        Swal.fire('Success', 'Room booked successfully!', 'success');
+                        location.reload();
+                    }).catch(() => Swal.fire('Error', 'Booking failed.', 'error'));
+                }
+            });
+        }
+    </script>
+</body>
+</html>
